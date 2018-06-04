@@ -20,6 +20,7 @@ from PIL import Image
 TODO:
 - Allow for non square images. (There shouldn't be a lot more to do)
 - Arguments to select devices
+- Allow rotation of the orbital trap
 
 
 """
@@ -256,7 +257,9 @@ def get_coords_in_image(orbit_trap_image, position_oti_in_plane, trappedX,
 
 
 def get_rbg_from_pixel_coords_in_trap(i_coord_in_trap, j_coord_in_trap,
-                                      orbit_trapped, orbit_trap_image, n_max):
+                                      orbit_trapped, orbit_trap_image, n_max,
+                                      background_color):
+    print("Background color is {}".format(background_color))
     Npy, Npx = orbit_trap_image.shape[:2]
     # step 5
     flat_coord_in_trap = i_coord_in_trap*Npy*3 + j_coord_in_trap*3
@@ -269,13 +272,14 @@ def get_rbg_from_pixel_coords_in_trap(i_coord_in_trap, j_coord_in_trap,
     # step 6
 
     condition = (orbit_trapped < n_max-1)
-    R = np.expand_dims(np.select([condition], [R], 177), axis=-1)
-    G = np.expand_dims(np.select([condition], [G], 197), axis=-1)
-    B = np.expand_dims(np.select([condition], [B], 216), axis=-1)
+    R = np.expand_dims(np.select([condition], [R], background_color[0]), axis=-1)
+    G = np.expand_dims(np.select([condition], [G], background_color[1]), axis=-1)
+    B = np.expand_dims(np.select([condition], [B], background_color[2]), axis=-1)
     return R, G, B
 
 
 def render_orbital_trap(viewport, n_escapes, orbits, canvas, n_max,
+                        background_color=(0, 0, 0),
                         orbit_trap_image=None, position_oti_in_plane=None):
     """
     n_max designs the number of iteration of the fractal generating function,
@@ -340,7 +344,7 @@ def render_orbital_trap(viewport, n_escapes, orbits, canvas, n_max,
 
     R, G, B = get_rbg_from_pixel_coords_in_trap(
         i_coord_in_trap, j_coord_in_trap, orbit_trapped, orbit_trap_image,
-        orbits.shape[2])
+        orbits.shape[2], background_color)
     
     # step 7, draw to canvas!
 
@@ -427,6 +431,7 @@ def parse_array_arguments(args):
     if args.poti is not None:
         args.poti = _parse(args.poti)
     args.julia_c = _parse(args.julia_c)
+    args.background = _parse(args.background)
 
 
 def run_mandelbrot(args):
@@ -451,7 +456,8 @@ def run_julia(args):
 
     oti = load_image(args.oti)
     poti = args.poti
-    render_kwargs = {"orbit_trap_image": oti, "position_oti_in_plane": poti}
+    render_kwargs = {"orbit_trap_image": oti, "position_oti_in_plane": poti,
+                     "background_color": args.background}
 
     run(args, build_graph, render_function, render_kwargs)
 
@@ -544,6 +550,9 @@ if __name__ == "__main__":
                         help="The offset coefficient (c) in the Julia "
                              "recurrence formula. Format: real_part,im_part",
                         default="-0.8,0.2")
+    parser.add_argument('--background', type=str,
+                        help="The background color in RGB format",
+                        default="0,0,0")
 
     args = parser.parse_args()
 
