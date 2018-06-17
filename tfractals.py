@@ -50,11 +50,12 @@ COLORS = np.array(mapping)
 N_WORKER_THREADS = 2
 
 
-def load_image(infilename) :
-    img = Image.open( infilename )
+def load_image(infilename):
+    img = Image.open(infilename)
     img.load()
-    data = np.asarray( img, dtype="int32" )
+    data = np.asarray(img, dtype="int32")
     return data
+
 
 def mandelbrot_set(c, zn):
     real_part = tf.expand_dims(
@@ -116,15 +117,15 @@ def build_rnn(fct, n_steps=10):
 def build_mandelbrot_loop(n_steps=10):
     c = tf.placeholder("float32", shape=(None, 2))  # c is the input
     z0 = tf.zeros_like(c)
-    escapes, znp1 = build_loop(mandelbrot_set, z0, c, n_steps=n_steps)
+    escapes, znp1 = build_for_loop(mandelbrot_set, z0, c, n_steps=n_steps)
     return c, escapes, znp1
 
 
 def build_julia_loop(c_base, n_steps=10, compute_orbits=True):
     c = tf.get_variable('c', initializer=c_base)
     z0 = tf.placeholder("float32", shape=(None, 2))  # z0 is the input
-    escapes, orbits = build_loop(mandelbrot_set, z0, c, n_steps=n_steps,
-                                 compute_orbits=compute_orbits)
+    escapes, orbits = build_for_loop(mandelbrot_set, z0, c, n_steps=n_steps,
+                                     compute_orbits=compute_orbits)
     return z0, escapes, orbits
 
 
@@ -133,7 +134,7 @@ def build_loop(fct, z0, c, n_steps=10, compute_orbits=False):
     if compute_orbits:
         orbits = tf.expand_dims(z0, axis=1)
         shape_invariants = [c.get_shape(), tf.TensorShape([None, None, 2]),
-                           escapes.get_shape()]
+                            escapes.get_shape()]
     else:
         orbits = z0
         shape_invariants = None
@@ -145,6 +146,18 @@ def build_loop(fct, z0, c, n_steps=10, compute_orbits=False):
         shape_invariants=shape_invariants)
     # norms = tf.reduce_sum(tf.square(orbit), axis=-1)
     return esc, orbs
+
+
+def build_for_loop(fct, z0, c, n_steps=10, compute_orbits=False):
+    if compute_orbits:
+        orbits = tf.expand_dims(z0, axis=1)
+    else:
+        orbits = z0
+    escapes = tf.zeros((tf.shape(z0)[0], 1), dtype="int32")
+    f = recurse_fct(fct, compute_orbits=compute_orbits)
+    for i in range(n_steps):
+        _, orbits, escapes = f(c, orbits, escapes)
+    return escapes, orbits
 
 
 def generate_views(batch_size, x_min, x_max, y_min, y_max, res):
@@ -223,7 +236,7 @@ def get_trapped_coordinates(orbits, orbit_trapped):
     stride0 = orbits.shape[1]*orbits.shape[2]
     stride1 = orbits.shape[2]
     orbit_trapped_flat = (orbit_trapped + np.arange(0, orbits.shape[0]).reshape((-1, 1))*stride0)\
-                          + np.arange(0, orbits.shape[1])*stride1
+        + np.arange(0, orbits.shape[1])*stride1
 
     trappedX = np.take(X, orbit_trapped_flat)
     trappedY = np.take(Y, orbit_trapped_flat)
@@ -345,11 +358,10 @@ def render_orbital_trap(viewport, n_escapes, orbits, canvas, n_max,
     R, G, B = get_rbg_from_pixel_coords_in_trap(
         i_coord_in_trap, j_coord_in_trap, orbit_trapped, orbit_trap_image,
         orbits.shape[2], background_color)
-    
+
     # step 7, draw to canvas!
 
     canvas[i:i+di, j:j+dj] = np.concatenate([R, G, B], axis=-1)
-    
 
 
 def fill_img(canvas, n_max, render_queue, render_function, **render_kwargs):
@@ -507,7 +519,6 @@ def run(args, build_graph, render_function, render_kwargs):
     plt.show()
 
 
-
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
@@ -561,7 +572,6 @@ if __name__ == "__main__":
     else:
         validate_mandelbrot_arguments(args)
     parse_array_arguments(args)
-
 
     if args.mode == "julia":
         run_julia(args)
